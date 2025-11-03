@@ -19,6 +19,9 @@
 
   const API_ENDPOINT = '/api/addresstools/lookup';
 
+  const TRIGGER_TYPES = new Set(['postalcode', 'number']);
+  const TRIGGER_EVENTS = ['input', 'change'];
+
   const groups = new Map();
 
   function normaliseValue(value) {
@@ -75,10 +78,12 @@
 
     group.elements[type] = element;
 
-    if (!group.listeners.has(element)) {
-      const handler = (event) => handleKeyup(event, group.id);
-      element.addEventListener('keyup', handler);
-      group.listeners.set(element, handler);
+    if (TRIGGER_TYPES.has(type) && !group.listeners.has(element)) {
+      const handler = (event) => handleTrigger(event, group.id);
+      TRIGGER_EVENTS.forEach((eventName) => {
+        element.addEventListener(eventName, handler);
+      });
+      group.listeners.set(element, { handler, events: TRIGGER_EVENTS.slice() });
     }
 
     // trigger initial lookup when both required fields are present and filled
@@ -103,7 +108,7 @@
     root.querySelectorAll(selectors).forEach(registerElement);
   }
 
-  function handleKeyup(event, groupId) {
+  function handleTrigger(event, groupId) {
     if (!event || !event.target) {
       return;
     }
@@ -111,6 +116,12 @@
     const group = groups.get(groupId);
 
     if (!group || group.isUpdating) {
+      return;
+    }
+
+    const type = getTypeForElement(event.target);
+
+    if (!type || !TRIGGER_TYPES.has(type)) {
       return;
     }
 
